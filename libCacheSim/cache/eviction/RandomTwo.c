@@ -1,17 +1,17 @@
 //
-//  a cache that does not do anything, used for measuring the overhead of trace
-//  replay
-//
-//
-//  nop.c
+//  RandomTwo.c
 //  libCacheSim
 //
-//  Created by Juncheng on 02/04/23.
-//  Copyright © 2018 Juncheng. All rights reserved.
+//  Picks two objects at random and evicts the one that is the least recently
+//  used RandomTwo eviction
+//
+//  Created by Juncheng on 8/2/16.
+//  Copyright © 2016 Juncheng. All rights reserved.
 //
 
 #include "../../dataStructure/hashtable/hashtable.h"
 #include "../../include/libCacheSim/evictionAlgo.h"
+#include "../../include/libCacheSim/macro.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -23,14 +23,14 @@ extern "C" {
 // ****                                                               ****
 // ***********************************************************************
 
-static void nop_free(cache_t *cache);
-static bool nop_get(cache_t *cache, const request_t *req);
-static cache_obj_t *nop_find(cache_t *cache, const request_t *req,
-                             const bool update_cache);
-static cache_obj_t *nop_insert(cache_t *cache, const request_t *req);
-static cache_obj_t *nop_to_evict(cache_t *cache, const request_t *req);
-static void nop_evict(cache_t *cache, const request_t *req);
-static bool nop_remove(cache_t *cache, const obj_id_t obj_id);
+static void RandomTwo_free(cache_t *cache);
+static bool RandomTwo_get(cache_t *cache, const request_t *req);
+static cache_obj_t *RandomTwo_find(cache_t *cache, const request_t *req,
+                                   const bool update_cache);
+static cache_obj_t *RandomTwo_insert(cache_t *cache, const request_t *req);
+static cache_obj_t *RandomTwo_to_evict(cache_t *cache, const request_t *req);
+static void RandomTwo_evict(cache_t *cache, const request_t *req);
+static bool RandomTwo_remove(cache_t *cache, const obj_id_t obj_id);
 
 // ***********************************************************************
 // ****                                                               ****
@@ -39,28 +39,26 @@ static bool nop_remove(cache_t *cache, const obj_id_t obj_id);
 // ****                       init, free, get                         ****
 // ***********************************************************************
 /**
- * @brief initialize a nop cache
+ * @brief initialize a RandomTwo cache
  *
  * @param ccache_params some common cache parameters
- * @param cache_specific_params nop specific parameters, should be NULL
+ * @param cache_specific_params RandomTwo specific parameters, should be NULL
  */
-cache_t *nop_init(const common_cache_params_t ccache_params,
-                  const char *cache_specific_params) {
-  cache_t *cache =
-      cache_struct_init("nop", ccache_params, cache_specific_params);
-  cache->cache_init = nop_init;
-  cache->cache_free = nop_free;
-  cache->get = nop_get;
-  cache->find = nop_find;
-  cache->insert = nop_insert;
-  cache->evict = nop_evict;
-  cache->remove = nop_remove;
-  cache->to_evict = nop_to_evict;
-  cache->get_occupied_byte = cache_get_occupied_byte_default;
-  cache->can_insert = cache_can_insert_default;
-  cache->get_n_obj = cache_get_n_obj_default;
+cache_t *RandomTwo_init(const common_cache_params_t ccache_params,
+                        const char *cache_specific_params) {
+  common_cache_params_t ccache_params_copy = ccache_params;
+  ccache_params_copy.hashpower = MAX(12, ccache_params_copy.hashpower - 8);
 
-  cache->obj_md_size = 0;
+  cache_t *cache =
+      cache_struct_init("RandomTwo", ccache_params_copy, cache_specific_params);
+  cache->cache_init = RandomTwo_init;
+  cache->cache_free = RandomTwo_free;
+  cache->get = RandomTwo_get;
+  cache->find = RandomTwo_find;
+  cache->insert = RandomTwo_insert;
+  cache->to_evict = RandomTwo_to_evict;
+  cache->evict = RandomTwo_evict;
+  cache->remove = RandomTwo_remove;
 
   return cache;
 }
@@ -70,7 +68,7 @@ cache_t *nop_init(const common_cache_params_t ccache_params,
  *
  * @param cache
  */
-static void nop_free(cache_t *cache) { cache_struct_free(cache); }
+static void RandomTwo_free(cache_t *cache) { cache_struct_free(cache); }
 
 /**
  * @brief this function is the user facing API
@@ -91,7 +89,7 @@ static void nop_free(cache_t *cache) { cache_struct_free(cache); }
  * @param req
  * @return true if cache hit, false if cache miss
  */
-static bool nop_get(cache_t *cache, const request_t *req) {
+static bool RandomTwo_get(cache_t *cache, const request_t *req) {
   return cache_get_base(cache, req);
 }
 
@@ -111,12 +109,14 @@ static bool nop_get(cache_t *cache, const request_t *req) {
  *  and if the object is expired, it is removed from the cache
  * @return true on hit, false on miss
  */
-static cache_obj_t *nop_find(cache_t *cache, const request_t *req,
-                             const bool update_cache) {
-  //   cache_obj_t *cache_obj = cache_find_base(cache, req, update_cache);
+static cache_obj_t *RandomTwo_find(cache_t *cache, const request_t *req,
+                                   const bool update_cache) {
+  cache_obj_t *obj = cache_find_base(cache, req, update_cache);
+  if (obj != NULL && update_cache) {
+    obj->RandomTwo.last_access_vtime = cache->n_req;
+  }
 
-  //   return cache_obj;
-  return NULL;
+  return obj;
 }
 
 /**
@@ -129,11 +129,11 @@ static cache_obj_t *nop_find(cache_t *cache, const request_t *req,
  * @param req
  * @return the inserted object
  */
-static cache_obj_t *nop_insert(cache_t *cache, const request_t *req) {
-  //   cache_obj_t *obj = cache_insert_base(cache, req);
+static cache_obj_t *RandomTwo_insert(cache_t *cache, const request_t *req) {
+  cache_obj_t *obj = cache_insert_base(cache, req);
+  obj->RandomTwo.last_access_vtime = cache->n_req;
 
-  //   return obj;
-  return NULL;
+  return obj;
 }
 
 /**
@@ -146,9 +146,14 @@ static cache_obj_t *nop_insert(cache_t *cache, const request_t *req) {
  * @param cache the cache
  * @return the object to be evicted
  */
-static cache_obj_t *nop_to_evict(cache_t *cache, const request_t *req) {
-  assert(false);
-  return NULL;
+static cache_obj_t *RandomTwo_to_evict(cache_t *cache, const request_t *req) {
+  cache_obj_t *obj_to_evict1 = hashtable_rand_obj(cache->hashtable);
+  cache_obj_t *obj_to_evict2 = hashtable_rand_obj(cache->hashtable);
+  if (obj_to_evict1->RandomTwo.last_access_vtime <
+      obj_to_evict2->RandomTwo.last_access_vtime)
+    return obj_to_evict1;
+  else
+    return obj_to_evict2;
 }
 
 /**
@@ -159,29 +164,14 @@ static cache_obj_t *nop_to_evict(cache_t *cache, const request_t *req) {
  * @param cache
  * @param req not used
  */
-static void nop_evict(cache_t *cache, const request_t *req) {
-  // cache_evict_base(cache, obj_to_evict, true);
-}
-
-/**
- * @brief remove the given object from the cache
- * note that eviction should not call this function, but rather call
- * `cache_evict_base` because we track extra metadata during eviction
- *
- * and this function is different from eviction
- * because it is used to for user trigger
- * remove, and eviction is used by the cache to make space for new objects
- *
- * it needs to call cache_remove_obj_base before returning
- * which updates some metadata such as n_obj, occupied size, and hash table
- *
- * @param cache
- * @param obj
- */
-static void nop_remove_obj(cache_t *cache, cache_obj_t *obj) {
-  assert(obj != NULL);
-
-  cache_remove_obj_base(cache, obj, true);
+static void RandomTwo_evict(cache_t *cache, const request_t *req) {
+  cache_obj_t *obj_to_evict1 = hashtable_rand_obj(cache->hashtable);
+  cache_obj_t *obj_to_evict2 = hashtable_rand_obj(cache->hashtable);
+  if (obj_to_evict1->RandomTwo.last_access_vtime <
+      obj_to_evict2->RandomTwo.last_access_vtime)
+    cache_evict_base(cache, obj_to_evict1, true);
+  else
+    cache_evict_base(cache, obj_to_evict2, true);
 }
 
 /**
@@ -197,7 +187,7 @@ static void nop_remove_obj(cache_t *cache, cache_obj_t *obj) {
  * @return true if the object is removed, false if the object is not in the
  * cache
  */
-static bool nop_remove(cache_t *cache, const obj_id_t obj_id) {
+static bool RandomTwo_remove(cache_t *cache, const obj_id_t obj_id) {
   cache_obj_t *obj = hashtable_find_obj_id(cache->hashtable, obj_id);
   if (obj == NULL) {
     return false;
