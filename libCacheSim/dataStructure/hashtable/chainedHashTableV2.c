@@ -23,8 +23,6 @@
 extern "C" {
 #endif
 
-#include "chainedHashTableV2.h"
-
 #include <assert.h>
 #include <errno.h>
 #include <stdio.h>
@@ -36,6 +34,7 @@ extern "C" {
 #include "../../include/libCacheSim/macro.h"
 #include "../../utils/include/mymath.h"
 #include "../hash/hash.h"
+#include "chainedHashTableV2.h"
 
 #define OBJ_EMPTY(cache_obj) ((cache_obj)->obj_size == 0)
 #define NEXT_OBJ(cur_obj) (((cache_obj_t *)(cur_obj))->hash_next)
@@ -363,7 +362,8 @@ static int count_n_obj_in_bucket(cache_obj_t *curr_obj) {
     obj_id_arr[chain_len] = curr_obj->obj_id;
     for (int i = 0; i < chain_len; i++) {
       if (obj_id_arr[i] == curr_obj->obj_id) {
-        ERROR("obj_id %lu is duplicated in hashtable\n", curr_obj->obj_id);
+        ERROR("obj_id %lu is duplicated in hashtable\n",
+              (unsigned long)curr_obj->obj_id);
         abort();
       }
     }
