@@ -107,7 +107,8 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
     case OPTION_NUM_THREAD:
       arguments->n_thread = atoi(arg);
       if (arguments->n_thread == 0 || arguments->n_thread == -1) {
-        arguments->n_thread = n_cores();
+        // arguments->n_thread = n_cores();
+        arguments->n_thread = 1;
       }
       break;
     case OPTION_TRACE_TYPE_PARAMS:
@@ -221,7 +222,8 @@ static void init_arg(struct arguments *args) {
   args->ignore_obj_size = false;
   args->consider_obj_metadata = false;
   args->report_interval = 3600 * 24;
-  args->n_thread = n_cores();
+  // args->n_thread = n_cores();
+  args->n_thread = 1;
   args->warmup_sec = -1;
   memset(args->ofilepath, 0, OFILEPATH_LEN);
   args->n_req = -1;

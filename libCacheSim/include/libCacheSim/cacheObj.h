@@ -11,6 +11,7 @@
 
 #include "../config.h"
 #include "mem.h"
+#include "../../utils/include/mymutex.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -132,10 +133,12 @@ typedef struct {
 
 // ############################## cache obj ###################################
 struct cache_obj;
+
+#define FLAG_IN_CACHE_BIT 0b001
+
 typedef struct cache_obj {
-  struct cache_obj *hash_next;
+  struct cache_obj *hash_next; // The first field to make an aligned pointer
   obj_id_t obj_id;
-  uint64_t fingerprint;
   uint32_t obj_size;
   struct {
     struct cache_obj *prev;
@@ -144,6 +147,8 @@ typedef struct cache_obj {
 #ifdef SUPPORT_TTL
   uint32_t exp_time;
 #endif
+  uint8_t flags;
+
 /* age is defined as the time since the object entered the cache */
 #if defined(TRACK_EVICTION_V_AGE) || \
     defined(TRACK_DEMOTION) || defined(TRACK_CREATE_TIME)
@@ -178,6 +183,23 @@ typedef struct cache_obj {
 #endif
   };
 } __attribute__((packed)) cache_obj_t;
+
+/**
+ * Set/get flags of the cache_obj atomically
+ */
+
+inline bool cache_obj_in_cache(cache_obj_t *obj) {
+  return obj->flags & FLAG_IN_CACHE_BIT; 
+}
+
+inline void cache_obj_set_in_cache(cache_obj_t *obj, bool in_cache) {
+  if (in_cache) {
+    fetch_or(&obj->flags, FLAG_IN_CACHE_BIT);
+  } else {
+    fetch_and(&obj->flags, ~FLAG_IN_CACHE_BIT);
+  }
+}
+
 
 struct request;
 
@@ -281,6 +303,12 @@ void prepend_obj_to_head(cache_obj_t **head, cache_obj_t **tail,
  */
 void append_obj_to_tail(cache_obj_t **head, cache_obj_t **tail,
                         cache_obj_t *cache_obj);
+/**
+ * free the the doubly linked list
+ * @param head
+ * @param tail
+ */
+void free_list(cache_obj_t **head, cache_obj_t **tail);
 /**
  * free cache_obj, this is only used when the cache_obj is explicitly
  * malloced

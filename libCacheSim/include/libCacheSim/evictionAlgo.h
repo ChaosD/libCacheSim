@@ -1,6 +1,7 @@
 #pragma once
 
 #include "cache.h"
+#include <pthread.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -15,6 +16,7 @@ typedef struct {
 typedef struct {
   cache_obj_t *q_head;
   cache_obj_t *q_tail;
+  pthread_mutex_t mutex_;
 } LRU_params_t;
 
 /* used by LFU related */
@@ -23,6 +25,7 @@ typedef struct freq_node {
   cache_obj_t *first_obj;
   cache_obj_t *last_obj;
   uint32_t n_obj;
+  pthread_mutex_t mutex_;
 } freq_node_t;
 
 typedef struct {

@@ -50,7 +50,7 @@ typedef cache_obj_t* (*func_hashtable_find_obj_id_t)(const hashtable_t *hashtabl
 typedef cache_obj_t* (*func_hashtable_insert_obj_t)(hashtable_t *hashtable,
                                              cache_obj_t *cache_obj);
 /** Function pointer to remove a cache object in the cache instance. */
-typedef bool (*func_hashtable_delete_obj_id_t)(hashtable_t *hashtable,
+typedef cache_obj_t* (*func_hashtable_delete_obj_id_t)(hashtable_t *hashtable,
                                              const obj_id_t obj_id);
 
 typedef hashtable_t *(*func_create_hashtable_t)(const uint16_t hashpower_init);
@@ -168,7 +168,10 @@ void *func_insert(void* arg){
   for (uint64_t it = 0; it < range; it++) {
     cur_obj_id = get_next_rand(cur_obj_id);
     cache_obj_t* cur_obj = create_cache_obj_from_obj_id(cur_obj_id);
-    ht_handle.func_insert_obj(table, cur_obj);
+    cache_obj_t* result = ht_handle.func_insert_obj(table, cur_obj);
+    if(result){
+      free_cache_obj(result);
+    }
     inserts++;
   }
   /** Update the shared atomic counter */
@@ -206,8 +209,10 @@ void *func_remove(void* arg){
   gettimeofday(&start, NULL);
   for (uint64_t it = 0; it < range; it++) {
     cur_obj_id = get_next_rand(cur_obj_id);
-    if(ht_handle.func_delete_obj(table, cur_obj_id)){
+    cache_obj_t* result = ht_handle.func_delete_obj(table, cur_obj_id);
+    if(result){
       success_removal++;
+      free_cache_obj(result);
     }
     else{
       fail_removal++;
@@ -263,7 +268,9 @@ void *func_mixed(void* arg){
     for(uint64_t it = 0; it < range; it++){
       cur_obj_id = get_next_rand(cur_obj_id);
       cache_obj_t* cur_obj = create_cache_obj_from_obj_id(cur_obj_id);
-      ht_handle.func_insert_obj(table, cur_obj);
+      cache_obj_t* old_item = ht_handle.func_insert_obj(table, cur_obj);
+      if(old_item)
+        free_cache_obj(old_item);
       inserts++;
     }
     for(uint64_t rounds = 0; rounds < 10; rounds++){
@@ -278,7 +285,9 @@ void *func_mixed(void* arg){
     }
     for(uint64_t it = 0; it < range; it++){
       cur_obj_id = get_next_rand(cur_obj_id);
-      ht_handle.func_delete_obj(table, cur_obj_id);
+      cache_obj_t* removed_item = ht_handle.func_delete_obj(table, cur_obj_id);
+      if(removed_item)
+        free_cache_obj(removed_item);
       removals++;
     }
     __sync_fetch_and_add(i_counter, inserts);
@@ -362,13 +371,13 @@ void stress_test() {
     ht_handle.func_free_hashtable = free_concurrent_chained_hashtable;
   }   
   // If hashtable type is chainedHashTableV2.
-  else if(g_ht_type == 1){
-    ht_handle.func_find_obj = chained_hashtable_find_obj_id_v2;
-    ht_handle.func_insert_obj = chained_hashtable_insert_obj_v2;
-    ht_handle.func_delete_obj = chained_hashtable_delete_obj_id_v2;
-    ht_handle.func_create_hashtable = create_chained_hashtable_v2;
-    ht_handle.func_free_hashtable = free_chained_hashtable_v2;
-  }
+  // else if(g_ht_type == 1){
+  //   ht_handle.func_find_obj = chained_hashtable_find_obj_id_v2;
+  //   ht_handle.func_insert_obj = chained_hashtable_insert_obj_v2;
+  //   ht_handle.func_delete_obj = chained_hashtable_delete_obj_id_v2;
+  //   ht_handle.func_create_hashtable = create_chained_hashtable_v2;
+  //   ht_handle.func_free_hashtable = free_chained_hashtable_v2;
+  // }
 
   // If hashtable type is invalid.
   else{

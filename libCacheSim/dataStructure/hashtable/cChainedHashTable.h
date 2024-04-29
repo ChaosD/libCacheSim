@@ -47,7 +47,7 @@ bool concurrent_chained_hashtable_try_delete(hashtable_t *hashtable,
 void concurrent_chained_hashtable_delete(hashtable_t *hashtable,
                                  cache_obj_t *cache_obj);
 
-bool concurrent_chained_hashtable_delete_obj_id(hashtable_t *hashtable,
+cache_obj_t *concurrent_chained_hashtable_delete_obj_id(hashtable_t *hashtable,
                                         const obj_id_t obj_id);
 
 cache_obj_t *concurrent_chained_hashtable_rand_obj(const hashtable_t *hashtable);
